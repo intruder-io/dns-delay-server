@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"time"
+	"strings"
 
 	"github.com/miekg/dns"
 )
@@ -27,29 +28,46 @@ func newDNSHandler(aRecords, aaaaRecords []net.IP, aDelay, aaaaDelay time.Durati
 		}
 
 		for _, q := range m.Question {
+			queryType := ""
+			answers := []net.IP{}
+			cname := false
+			delay := time.Duration(0)
+
+			if strings.HasPrefix(q.Name, "cname.") {
+				cname = true
+				d := strings.TrimPrefix(q.Name, "cname.")
+				log.Printf("Query for %s, replying with CNAME %s\n", q.Name, d)
+				rr, err := dns.NewRR(fmt.Sprintf("%s CNAME %s", q.Name, d))
+				if err == nil {
+					m.Answer = append(m.Answer, rr)
+				}
+			}
 			switch q.Qtype {
 			case dns.TypeA:
-				log.Printf("A Query for %s, replying aftter %v\n", q.Name, aDelay)
-				time.Sleep(aDelay)
-				if len(aRecords) > 0 {
-					for _, ip := range aRecords {
-						rr, err := dns.NewRR(fmt.Sprintf("%s A %s", q.Name, ip))
-						if err == nil {
-							m.Answer = append(m.Answer, rr)
-						}
-					}
-				}
+				queryType = "A"
+				answers = aRecords
+				delay = aDelay
 
 			case dns.TypeAAAA:
-				log.Printf("AAAA Query for %s, replying aftter %v\n", q.Name, aaaaDelay)
-				time.Sleep(aaaaDelay)
-				if len(aaaaRecords) > 0 {
-					for _, ip := range aaaaRecords {
-						rr, err := dns.NewRR(fmt.Sprintf("%s AAAA %s", q.Name, ip))
-						if err == nil {
-							m.Answer = append(m.Answer, rr)
-						}
+				queryType = "AAAA"
+				answers = aaaaRecords
+				delay = aaaaDelay
+			}
+
+			log.Printf("%s Query for %s, replying after %v\n", queryType, q.Name, delay)
+			time.Sleep(delay)
+			if len(answers) > 0 {
+				d := q.Name
+				if cname {
+					d = strings.TrimPrefix(d, "cname.")
+				}
+				for _, ip := range answers {
+					rr, err := dns.NewRR(fmt.Sprintf("%s %s %s", d, queryType, ip))
+					if err != nil {
+						log.Printf("Failed to create RR: %s\n", err.Error())
+						continue
 					}
+					m.Answer = append(m.Answer, rr)
 				}
 			}
 		}
