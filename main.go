@@ -1,21 +1,20 @@
 package main
 
 import (
-	flag "github.com/spf13/pflag"
 	"fmt"
 	"log"
-	"net"
-	"time"
 	"strings"
+	"time"
+
+	flag "github.com/spf13/pflag"
 
 	"github.com/miekg/dns"
 )
 
 // adapted from https://gist.github.com/NinoM4ster/edaac29339371c6dde7cdb48776d2854 which was
 // adapted from https://gist.github.com/walm/0d67b4fb2d5daf3edd4fad3e13b162cb
-// to support multiple A records (different IPs) and multiple SRV records (same host, different ports).
 
-func newDNSHandler(aRecords, aaaaRecords []net.IP, aDelay, aaaaDelay time.Duration, authority string) dns.HandlerFunc {
+func newDNSHandler(aRecords, aaaaRecords []string, aDelay, aaaaDelay time.Duration, authority string) dns.HandlerFunc {
 	return func(w dns.ResponseWriter, r *dns.Msg) {
 		m := new(dns.Msg)
 		m.SetReply(r)
@@ -29,7 +28,7 @@ func newDNSHandler(aRecords, aaaaRecords []net.IP, aDelay, aaaaDelay time.Durati
 
 		for _, q := range m.Question {
 			queryType := ""
-			answers := []net.IP{}
+			answers := []string{}
 			cname := false
 			delay := time.Duration(0)
 
@@ -88,8 +87,8 @@ func main() {
 	// Flags
 	port := flag.IntP("port", "p", 5353, "port to listen on")
 	listenAddr := flag.StringP("listen", "l", "0.0.0.0", "address to listen on")
-	aRecords := flag.IPSliceP("a", "a", []net.IP{}, "A records to serve")
-	aaaaRecords := flag.IPSliceP("aaaa", "6", []net.IP{}, "AAAA records to serve")
+	aRecords := flag.StringSliceP("a", "a", []string{}, "A records to serve")
+	aaaaRecords := flag.StringSliceP("aaaa", "6", []string{}, "AAAA records to serve")
 	aDelay := flag.DurationP("delay-a", "d", 0, "delay before serving to A records")
 	aaaaDelay := flag.DurationP("delay-aaaa", "D", 0, "delay before serving to AAAA records")
 	authority := flag.StringP("authority", "", "", "authority to serve")
