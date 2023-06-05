@@ -14,7 +14,7 @@ import (
 // adapted from https://gist.github.com/NinoM4ster/edaac29339371c6dde7cdb48776d2854 which was
 // adapted from https://gist.github.com/walm/0d67b4fb2d5daf3edd4fad3e13b162cb
 
-func newDNSHandler(aRecords, aaaaRecords []string, aDelay, aaaaDelay time.Duration, authority string) dns.HandlerFunc {
+func newDNSHandler(records Records, aDelay, aaaaDelay time.Duration, authority string) dns.HandlerFunc {
 	return func(w dns.ResponseWriter, r *dns.Msg) {
 		m := new(dns.Msg)
 		m.SetReply(r)
@@ -43,13 +43,21 @@ func newDNSHandler(aRecords, aaaaRecords []string, aDelay, aaaaDelay time.Durati
 			}
 			switch q.Qtype {
 			case dns.TypeA:
+				if cname && len(records.CNAMEA) > 0 {
+					answers = records.CNAMEA
+				} else {
+					answers = records.A
+				}
 				queryType = "A"
-				answers = aRecords
 				delay = aDelay
 
 			case dns.TypeAAAA:
+				if cname && len(records.CNAMEAAAA) > 0 {
+					answers = records.CNAMEAAAA
+				} else {
+					answers = records.AAAA
+				}
 				queryType = "AAAA"
-				answers = aaaaRecords
 				delay = aaaaDelay
 			}
 
@@ -83,6 +91,13 @@ func newDNSHandler(aRecords, aaaaRecords []string, aDelay, aaaaDelay time.Durati
 	}
 }
 
+type Records struct {
+	A         []string
+	AAAA      []string
+	CNAMEA    []string
+	CNAMEAAAA []string
+}
+
 func main() {
 	// Flags
 	port := flag.IntP("port", "p", 5353, "port to listen on")
@@ -91,11 +106,20 @@ func main() {
 	aaaaRecords := flag.StringSliceP("aaaa", "6", []string{}, "AAAA records to serve")
 	aDelay := flag.DurationP("delay-a", "d", 0, "delay before serving to A records")
 	aaaaDelay := flag.DurationP("delay-aaaa", "D", 0, "delay before serving to AAAA records")
+	aCname := flag.StringSliceP("cname-a", "c", []string{}, "A record to serve for CNAME queries")
+	aaaaCname := flag.StringSliceP("cname-aaaa", "C", []string{}, "AAAA record to serve for CNAME queries")
 	authority := flag.StringP("authority", "", "", "authority to serve")
 	flag.Parse()
 
+	records := Records{
+		A:         *aRecords,
+		AAAA:      *aaaaRecords,
+		CNAMEA:    *aCname,
+		CNAMEAAAA: *aaaaCname,
+	}
+
 	// attach request handler func
-	dns.HandleFunc(".", newDNSHandler(*aRecords, *aaaaRecords, *aDelay, *aaaaDelay, *authority))
+	dns.HandleFunc(".", newDNSHandler(records, *aDelay, *aaaaDelay, *authority))
 
 	// start server
 	server := &dns.Server{Addr: fmt.Sprintf("%s:%d", *listenAddr, *port), Net: "udp"}
