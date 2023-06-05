@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
 	"strings"
 	"time"
 
@@ -69,6 +70,10 @@ func newDNSHandler(records Records, aDelay, aaaaDelay time.Duration, authority s
 					d = strings.TrimPrefix(d, "cname.")
 				}
 				for _, ip := range answers {
+					// Check if IP is valid
+					if net.ParseIP(ip) == nil {
+						continue
+					}
 					rr, err := dns.NewRR(fmt.Sprintf("%s %s %s", d, queryType, ip))
 					if err != nil {
 						log.Printf("Failed to create RR: %s\n", err.Error())
@@ -104,8 +109,8 @@ func main() {
 	listenAddr := flag.StringP("listen", "l", "0.0.0.0", "address to listen on")
 	aRecords := flag.StringSliceP("a", "a", []string{}, "A records to serve")
 	aaaaRecords := flag.StringSliceP("aaaa", "6", []string{}, "AAAA records to serve")
-	aDelay := flag.DurationP("delay-a", "d", 0, "delay before serving to A records")
-	aaaaDelay := flag.DurationP("delay-aaaa", "D", 0, "delay before serving to AAAA records")
+	aDelay := flag.DurationP("delay-a", "d", 0, "delay before serving to A records - give an invalid IP address to prevent A records from being served with CNAMES")
+	aaaaDelay := flag.DurationP("delay-aaaa", "D", 0, "delay before serving to AAAA records - give an invalid IP address to prevent AAAA records from being served with CNAMES")
 	aCname := flag.StringSliceP("cname-a", "c", []string{}, "A record to serve for CNAME queries")
 	aaaaCname := flag.StringSliceP("cname-aaaa", "C", []string{}, "AAAA record to serve for CNAME queries")
 	authority := flag.StringP("authority", "", "", "authority to serve")
