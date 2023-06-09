@@ -1,4 +1,4 @@
-module github.com/intruderio/dns-delay-server
+module github.com/intruder-io/dns-delay-server
 
 go 1.20
 

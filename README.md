@@ -3,7 +3,7 @@ This is a simple DNS server which can be used to delay A or AAAA responses. This
 # Installation
 Ensure that you have golang properly installed and setup, then install this tool with:
 ```
-go get github.com/intruderio/dns-delay-server@latest
+go get github.com/intruder-io/dns-delay-server@latest
 ```
 
 # Usage
